@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
@@ -16,21 +17,25 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.Spinner;
+import android.widget.TabHost;
 import android.widget.TextView;
 
 import com.tencent.android.tpush.XGPushManager;
 import com.tencent.android.tpush.service.XGPushService;
-
+import net.internetTelephone.program.common.interf.OnTabReselectListener;
 import net.internetTelephone.program.common.LoginBackground;
 import net.internetTelephone.program.common.htmltext.URLSpanNoUnderline;
 import net.internetTelephone.program.common.network.util.Login;
 import net.internetTelephone.program.common.ui.BaseActivity;
+import net.internetTelephone.program.common.ui.MainTab;
+import net.internetTelephone.program.common.widget.MyFragmentTabHost;
 import net.internetTelephone.program.login.MarketingHelp;
 import net.internetTelephone.program.login.ZhongQiuGuideActivity;
 import net.internetTelephone.program.maopao.MaopaoListFragment;
@@ -53,7 +58,7 @@ import java.util.List;
 
 @EActivity(R.layout.activity_main)
 public class MainActivity extends BaseActivity
-        implements NavigationDrawerFragment_.NavigationDrawerCallbacks {
+        implements NavigationDrawerFragment_.NavigationDrawerCallbacks, TabHost.OnTabChangeListener, View.OnTouchListener {
 
     public static final String TAG = "MainActivity";
     public static final String BroadcastPushStyle = "BroadcastPushStyle";
@@ -67,6 +72,10 @@ public class MainActivity extends BaseActivity
     String maopao_action_types[];
     @ViewById
     ViewGroup drawer_layout;
+
+    //http://www.cnblogs.com/mengdd/archive/2015/06/23/4595973.html(ButterKnife基本使用)
+//    @ViewById
+    public MyFragmentTabHost mTabHost;
 
     private static boolean sNeedWarnEmailNoValidLogin = false;
 
@@ -259,6 +268,7 @@ public class MainActivity extends BaseActivity
         if (mFirstEnter) {
             onNavigationDrawerItemSelected(0);
         }
+        initView();
     }
 
     @Override
@@ -389,14 +399,116 @@ public class MainActivity extends BaseActivity
         exitApp();
     }
 
+    @Override
+    public void onTabChanged(String tabId) {
+
+        final int size = mTabHost.getTabWidget().getTabCount();
+        for (int i = 0; i < size; i++) {
+            View v = mTabHost.getTabWidget().getChildAt(i);
+            if (i == mTabHost.getCurrentTab()) {
+                v.setSelected(true);
+            } else {
+                v.setSelected(false);
+            }
+        }
+        supportInvalidateOptionsMenu();
+
+        mSelectPos = mTabHost.getCurrentTab();
+
+        Fragment fragment = null;
+
+        fragment = new TaskFragment_();
+
+        if (fragment != null) {
+            getSupportFragmentManager().beginTransaction().replace(R.id.container, fragment).commit();
+        }
+    }
+
+    @Override
+    public boolean onTouch(View v, MotionEvent event) {
+        super.onTouchEvent(event);
+        boolean consumed = false;
+        // use getTabHost().getCurrentTabView to decide if the current tab is
+        // touched again
+        if (event.getAction() == MotionEvent.ACTION_DOWN
+                && v.equals(mTabHost.getCurrentTabView())) {
+            // use getTabHost().getCurrentView() to get a handle to the view
+            // which is displayed in the tab - and to get this views context
+            Fragment currentFragment = getCurrentFragment();
+            if (currentFragment != null
+                    && currentFragment instanceof OnTabReselectListener) {
+                OnTabReselectListener listener = (OnTabReselectListener) currentFragment;
+                listener.onTabReselect();
+                consumed = true;
+            }
+        }
+        return consumed;
+    }
+
+    //设置tabbar
+    private void initTabs() {
+        MainTab[] tabs = MainTab.values();
+        final int size = tabs.length;
+        for (int i = 0; i < size; i++) {
+            MainTab mainTab = tabs[i];
+            TabHost.TabSpec tab = mTabHost.newTabSpec(getString(mainTab.getResName()));
+            View indicator = LayoutInflater.from(getApplicationContext())
+                    .inflate(R.layout.tab_indicator, null);
+            TextView title = (TextView) indicator.findViewById(R.id.tab_title);
+            Drawable drawable = this.getResources().getDrawable(
+                    mainTab.getResIcon());
+            title.setCompoundDrawablesWithIntrinsicBounds(null, drawable, null,
+                    null);
+            if (i == 2) {
+                indicator.setVisibility(View.INVISIBLE);
+                mTabHost.setNoTabChangedTag(getString(mainTab.getResName()));
+            }
+            title.setText(getString(mainTab.getResName()));
+            tab.setIndicator(indicator);
+            tab.setContent(new TabHost.TabContentFactory() {
+
+                @Override
+                public View createTabContent(String tag) {
+                    return new View(MainActivity.this);
+                }
+            });
+            mTabHost.addTab(tab, mainTab.getClz(), null);
+            mTabHost.getTabWidget().getChildAt(i).setOnTouchListener(this);
+        }
+
+    }
+
+    private void initView() {
+
+        mTabHost = (MyFragmentTabHost)findViewById(android.R.id.tabhost);
+        mTabHost.setup(this, getSupportFragmentManager(), R.id.container);
+        if (android.os.Build.VERSION.SDK_INT > 10) {
+            mTabHost.getTabWidget().setShowDividers(0);
+        }
+
+        initTabs();
+
+//        // 中间按键图片触发
+//        mAddBt.setOnClickListener(this);
+
+        mTabHost.setCurrentTab(0);
+        mTabHost.setOnTabChangedListener(this);
+    }
+
     private void exitApp() {
         if ((System.currentTimeMillis() - exitTime) > 2000) {
-            showButtomToast("再按一次退出Coding");
+            showButtomToast("再按一次退出网络电话");
             exitTime = System.currentTimeMillis();
         } else {
             finish();
         }
     }
+
+    private Fragment getCurrentFragment() {
+        return getSupportFragmentManager().findFragmentByTag(
+                mTabHost.getCurrentTabTag());
+    }
+
 
     class MySpinnerAdapter extends BaseAdapter {
 

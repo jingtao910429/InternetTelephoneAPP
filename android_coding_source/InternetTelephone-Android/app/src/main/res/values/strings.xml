@@ -186,4 +186,11 @@
     <string name="title_activity_edit_code">编辑代码</string>
     <string name="title_activity_set_global_key">设置用户名</string>
 
+    <string name="main_tab_name_news">综合</string>
+    <string name="main_tab_name_tweet">动弹</string>
+    <string name="main_tab_name_quick">快速</string>
+    <string name="main_tab_name_question">问答</string>
+    <string name="main_tab_name_my">我</string>
+    <string name="main_tab_name_explore">发现</string>
+
 </resources>
